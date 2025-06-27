@@ -1,0 +1,34 @@
+%{
+using CommandHandler = std::function<void(void)>;
+
+extern void handle_uci();
+extern void handle_isready();
+extern void handle_position();
+extern void handle_go(); 
+extern void handle_stop();
+extern void handle_quit_wrapper();
+extern void handle_ucinewgame();
+#ifdef DEBUG
+extern void handle_print_pos();
+extern void undo_last_move();
+#endif
+
+struct UciCommandAction {
+    const char* name;
+    CommandHandler handler;
+};
+%}
+struct UciCommandAction;
+%%
+uci,        handle_uci
+isready,    handle_isready
+position,   handle_position
+go,         handle_go
+stop,       handle_stop
+quit,       handle_quit_wrapper
+ucinewgame, handle_ucinewgame
+#ifdef DEBUG
+debug_print_position, handle_print_pos
+debug_undo_last_move, undo_last_move
+#endif
+%%
