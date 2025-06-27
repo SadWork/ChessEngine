@@ -42,3 +42,16 @@ namespace FEN
 {
     constexpr std::string_view Default("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 };
+
+enum Direction : std::int16_t {
+    NORTH = 8,
+    EAST  = 1,
+    SOUTH = -NORTH,
+    WEST  = -EAST,
+
+    NORTH_EAST = NORTH + EAST,
+    SOUTH_EAST = SOUTH + EAST,
+    SOUTH_WEST = SOUTH + WEST,
+    NORTH_WEST = NORTH + WEST
+};
+
