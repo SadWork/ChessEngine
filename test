@@ -40,4 +40,5 @@ debug_undo_last_move
 debug_print_position
 debug_undo_last_move
 debug_print_position
+debug_perft 1
 quit

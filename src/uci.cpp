@@ -1,6 +1,8 @@
+#pragma once
 #include <bits/stdc++.h>
 #include "types.h"
 #include "position.cpp"
+#include "movegen.hpp"
 
 namespace UCI
 {
@@ -159,11 +161,36 @@ namespace UCI
     }
 
 #ifdef DEBUG
-    void handle_print_pos() { std::println("{}", g_position); }
+void handle_print_pos() { std::println("{}", g_position); }
 
-    void undo_last_move()
-    {
-        g_position.undo_move();
+void undo_last_move()
+{
+    g_position.undo_move();
+}
+
+uint64_t perft(Position& pos, int depth) {
+    if (depth == 0) {
+        return 1;
+    }
+    
+    std::vector<Move> move_list;
+    MoveGen::generate_moves(pos, move_list);
+    
+    uint64_t nodes = 0;
+    for (const auto& move : move_list) {
+        pos.do_move(move);
+        nodes += perft(pos, depth - 1);
+        pos.undo_move();
+    }
+    return nodes;
+}
+
+void handle_perft() {
+        // ... парсинг глубины
+        int depth;
+        std::cin>>depth;
+        uint64_t nodes = perft(g_position, depth);
+        std::println("Nodes searched: {}", nodes);
     }
 #endif
 }

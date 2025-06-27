@@ -1,4 +1,4 @@
-/* C++ code produced by gperf version 3.1 */
+/* C++ code produced by gperf version 3.3 */
 /* Command-line: gperf -L C++ -C -t  */
 /* Computed positions: -k'$' */
 
@@ -40,13 +40,14 @@ extern void handle_quit_wrapper();
 extern void handle_ucinewgame();
 extern void handle_print_pos();
 extern void undo_last_move();
+extern void handle_perft();
 struct UciCommandAction {
     const char* name;
     CommandHandler handler;
 };
 struct UciCommandAction;
 
-#define TOTAL_KEYWORDS 9
+#define TOTAL_KEYWORDS 10
 #define MIN_WORD_LENGTH 2
 #define MAX_WORD_LENGTH 20
 #define MIN_HASH_VALUE 2
@@ -99,6 +100,10 @@ Perfect_Hash::hash (const char *str, size_t len)
 const struct UciCommandAction *
 Perfect_Hash::in_word_set (const char *str, size_t len)
 {
+#if (defined __GNUC__ && __GNUC__ + (__GNUC_MINOR__ >= 6) > 4) || (defined __clang__ && __clang_major__ >= 3)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+#endif
   static const struct UciCommandAction wordlist[] =
     {
       {""}, {""},
@@ -109,13 +114,18 @@ Perfect_Hash::in_word_set (const char *str, size_t len)
       {"isready", handle_isready},
       {"position", handle_position},
       {"stop", handle_stop},
-      {""}, {""}, {""}, {""}, {""},
+      {""},
+      {"debug_perft", handle_perft},
+      {""}, {""}, {""},
       {"ucinewgame", handle_ucinewgame},
       {""}, {""}, {""}, {""},
       {"debug_print_position", handle_print_pos},
       {""}, {""}, {""}, {""},
       {"debug_undo_last_move", undo_last_move}
     };
+#if (defined __GNUC__ && __GNUC__ + (__GNUC_MINOR__ >= 6) > 4) || (defined __clang__ && __clang_major__ >= 3)
+#pragma GCC diagnostic pop
+#endif
 
   if (len <= MAX_WORD_LENGTH && len >= MIN_WORD_LENGTH)
     {
@@ -129,6 +139,6 @@ Perfect_Hash::in_word_set (const char *str, size_t len)
             return &wordlist[key];
         }
     }
-  return 0;
+  return static_cast<struct UciCommandAction *> (0);
 }
 

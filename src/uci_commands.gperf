@@ -11,6 +11,7 @@ extern void handle_ucinewgame();
 #ifdef DEBUG
 extern void handle_print_pos();
 extern void undo_last_move();
+extern void handle_perft();
 #endif
 
 struct UciCommandAction {
@@ -30,5 +31,6 @@ ucinewgame, handle_ucinewgame
 #ifdef DEBUG
 debug_print_position, handle_print_pos
 debug_undo_last_move, undo_last_move
+debug_perft, handle_perft
 #endif
 %%
