@@ -175,9 +175,12 @@ uint64_t perft(Position& pos, int depth) {
     
     std::vector<Move> move_list;
     MoveGen::generate_moves(pos, move_list);
+    std::print("{{");
     for(Move move : move_list) {
-        println("{} -> {}", FEN::index_to_square(move.source()), FEN::index_to_square(move.dest()));
+        print("{}->{} ", FEN::index_to_square(move.source()), FEN::index_to_square(move.dest()));
     }
+    std::println("}}");
+
     uint64_t nodes = 0;
     for (const auto& move : move_list) {
         pos.do_move(move);
