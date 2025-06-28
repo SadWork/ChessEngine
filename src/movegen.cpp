@@ -14,12 +14,12 @@ namespace MoveGen
     // Направления для слона
     constexpr int const *BISHOP_DIRECTIONS = KING_DIRECTIONS+sizeof(KING_DIRECTIONS)/sizeof(KING_DIRECTIONS[0])/2;
 
-    void generate_moves(const Position &pos, std::vector<Move> &move_list)
+    
+
+    void generate_attacks(const Position &pos, Color side_to_move, AttacksArray &attacks_list)
     {
-        move_list.clear();
-        move_list.reserve(218);
-        
-        Color side_to_move = static_cast<Color>(Position::get_side_to_move(pos));
+        attacks_list.size.fill(0);
+
         for (uint16_t i = 0; i < pos.end_pieces_list; ++i)
         {
             const Piece& p = pos.pieces_list[i];
@@ -33,23 +33,22 @@ namespace MoveGen
             switch (piece_type)
             {
             case PieceType::PAWN:
-                generate_pawn_attacks(pos, from_sq, move_list);
-                generate_pawn_moves(pos, from_sq, move_list);
+                generate_pawn_attacks(pos, side_to_move, from_sq, attacks_list);
                 break;
             case PieceType::KNIGHT:
-                generate_leaping_attacks(pos, from_sq, KNIGHT_DIRECTIONS, 8, move_list);
+                generate_leaping_attacks(pos, side_to_move, from_sq, KNIGHT_DIRECTIONS, 8, attacks_list);
                 break;
             case PieceType::BISHOP:
-                generate_sliding_attacks(pos, from_sq, BISHOP_DIRECTIONS, 4, move_list);
+                generate_sliding_attacks(pos, side_to_move, from_sq, BISHOP_DIRECTIONS, 4, attacks_list);
                 break;
             case PieceType::ROOK:
-                generate_sliding_attacks(pos, from_sq, ROOK_DIRECTIONS, 4, move_list);
+                generate_sliding_attacks(pos, side_to_move, from_sq, ROOK_DIRECTIONS, 4, attacks_list);
                 break;
             case PieceType::QUEEN:
-                generate_sliding_attacks(pos, from_sq, KING_DIRECTIONS, 8, move_list);
+                generate_sliding_attacks(pos, side_to_move, from_sq, KING_DIRECTIONS, 8, attacks_list);
                 break;
             case PieceType::KING:
-                generate_leaping_attacks(pos, from_sq, KING_DIRECTIONS, 8, move_list);
+                generate_leaping_attacks(pos, side_to_move, from_sq, KING_DIRECTIONS, 8, attacks_list);
                 // TODO: Добавить генерацию рокировок
                 break;
             case PieceType::EMPTY:
@@ -59,33 +58,108 @@ namespace MoveGen
         }
     }
 
-    void generate_pawn_moves(const Position &pos, uint16_t from_sq, std::vector<Move> &move_list) {
+    void generate_moves(Position &pos, AttacksArray &attacks_list, std::vector<MoveInfo> &move_list)
+    {
+        move_list.clear();
+        move_list.reserve(218);
+
         Color side_to_move = static_cast<Color>(Position::get_side_to_move(pos));
+        uint16_t color_bit = static_cast<uint16_t>(side_to_move) << static_cast<uint16_t>(Color::LOG_BIT_COLOR);
+
+        for(size_t i = 0; i< attacks_list.size.size(); ++i){
+            // TODO : Remove checking promotion for 2-7 ranks
+            size_t size = attacks_list.size[i];
+            for(size_t j = 0; j < size; ++j){
+                Move m = attacks_list.sq[i*static_cast<size_t>(Map::MAX_ATTACKS_PER_SQ)+j];
+                
+                uint16_t source_sq = m.source();
+                uint16_t moved_idx = pos.board[m.source()];
+                PieceType moved_piece = FEN::get_piece_type(pos.pieces_list[moved_idx].type);
+
+                uint16_t dest_sq = m.dest();
+                uint16_t captured_idx = pos.board[m.dest()];
+                Piece caputred_piece = pos.pieces_list[captured_idx];
+                uint16_t captured_color_bit = caputred_piece.type & static_cast<uint16_t>(Color::BIT_COLOR);
+                
+                if(color_bit == captured_color_bit and captured_idx != static_cast<uint16_t>(Map::CNT_SQUARES)){
+                    continue;
+                }
+                if(moved_piece == PieceType::PAWN and (dest_sq != pos.enpassant_target_square and captured_idx == static_cast<uint16_t>(Map::CNT_SQUARES)))
+                {
+                    continue;
+                }
+
+                auto next_attacks = std::make_shared<AttacksArray>();
+                if(is_legal(m, pos, attacks_list, *next_attacks)){
+                    if(moved_piece == PieceType::PAWN){
+                        generate_pawn_promotions(m, side_to_move, move_list, next_attacks);
+                        continue;
+                    }
+                    move_list.emplace_back(m,next_attacks);
+                }
+            }
+        }
+
+        for (uint16_t i = 0; i < pos.end_pieces_list; ++i)
+        {
+            const Piece& p = pos.pieces_list[i];
+            Color piece_color = FEN::get_piece_color(p.type);
+
+            if (piece_color != side_to_move) continue;
+
+            PieceType piece_type = FEN::get_piece_type(p.type);
+            uint16_t from_sq = p.position;
+
+            switch (piece_type)
+            {
+            case PieceType::PAWN:
+                {
+                    PawnQuiteMoves pawn_list;
+                    pawn_list.fill(Move::none());
+                    generate_pawn_moves(pos,side_to_move, from_sq, pawn_list);
+                    
+                    size_t size = 0;
+                    while(pawn_list[size] != Move::none()){
+                        auto next_attacks = std::make_shared<AttacksArray>();
+                        if(is_legal(pawn_list[size], pos, attacks_list, *next_attacks)){
+                            generate_pawn_promotions(pawn_list[size], side_to_move, move_list, next_attacks);
+                        }
+                        ++size;
+                    }
+                }
+                break;
+            case PieceType::KING:
+                // TODO: Добавить генерацию рокировок
+                break;
+            case PieceType::EMPTY:
+            default:
+                break;
+            }
+        }
+    }
+
+    void generate_pawn_moves(const Position &pos, Color side_to_move, uint16_t from_sq, PawnQuiteMoves &move_list) {
+        size_t size = 0;
 
         int push_once = side_to_move == Color::WHITE ? NORTH : SOUTH;
         
         int push_once_dest = from_sq + push_once; // always is valid if pawn is not on the first or last rank
         int push_twice_dest = push_once_dest + push_once; // always is valid if is_promotion == false
-        bool is_promotion = push_twice_dest < 0 or push_twice_dest >= static_cast<int>(Map::CNT_SQUARES);
 
         int push_twice_inv_dest = from_sq - 2*push_once;
         bool is_start_rank =  push_twice_inv_dest < 0 or push_twice_inv_dest >= static_cast<int>(Map::CNT_SQUARES);
 
         // No capture
         if(pos.board[push_once_dest] == static_cast<uint16_t>(Map::CNT_SQUARES)){
-            if(!generate_pawn_promotions(from_sq, push_once_dest, push_twice_dest, move_list))
-            {
-                move_list.emplace_back(from_sq, push_once_dest);
-                if(is_start_rank){
-                    move_list.emplace_back(from_sq, push_twice_dest);
-                }
+            move_list[size++] = Move(from_sq, push_once_dest);
+            if (is_start_rank){
+                move_list[size++] = Move(from_sq, push_twice_dest);
             }
-        }           
+        }    
     }
     
-    void generate_pawn_attacks(const Position &pos, uint16_t from_sq, std::vector<Move> &move_list)
+    void generate_pawn_attacks(const Position &pos, Color side_to_move, uint16_t from_sq, AttacksArray &attacks_list)
     {
-        Color side_to_move = static_cast<Color>(Position::get_side_to_move(pos));
 
         // Captures
         int capture_dirs[] = {(side_to_move == Color::WHITE) ? NORTH_WEST : SOUTH_WEST, (side_to_move == Color::WHITE) ? NORTH_EAST : SOUTH_EAST}; 
@@ -98,35 +172,45 @@ namespace MoveGen
             }
 
             uint16_t captured_idx = pos.board[dest_sq];
-            if (captured_idx != static_cast<uint16_t>(Map::CNT_SQUARES) && FEN::get_piece_color(pos.pieces_list[captured_idx].type) != side_to_move){
-                if (!generate_pawn_promotions(from_sq, dest_sq, dest_sq+dir, move_list))
-                {
-                    move_list.emplace_back(from_sq, dest_sq);
-                }
-            }
+            size_t offset = attacks_list.size[dest_sq]++;
+            
+            attacks_list.sq[dest_sq*static_cast<size_t>(Map::MAX_ATTACKS_PER_SQ) + offset] = Move(from_sq, dest_sq);
+            
+            // if (captured_idx != static_cast<uint16_t>(Map::CNT_SQUARES)){
+            //     size_t offset = attacks_list.size[dest_sq]++;
+            //     attacks_list.sq[dest_sq*static_cast<size_t>(Map::MAX_ATTACKS_PER_SQ) + offset] = Move(from_sq, dest_sq);
+            // }
 
-            if (dest_sq == pos.enpassant_target_square)
-            {
-                move_list.emplace_back(from_sq, dest_sq, MoveType::EN_PASSANT);
-            }
+            // if (dest_sq == pos.enpassant_target_square)
+            // {
+            //     size_t offset = attacks_list.size[dest_sq]++;
+            //     attacks_list.sq[dest_sq*static_cast<size_t>(Map::MAX_ATTACKS_PER_SQ)] = Move(from_sq, dest_sq,MoveType::EN_PASSANT);
+            // }
         }    
     }
 
-    bool generate_pawn_promotions(uint16_t from_sq, uint16_t dest_sq, uint16_t push_twice_dest, std::vector<Move> &move_list)
+    void generate_pawn_promotions(Move move, Color side_to_move, std::vector<MoveInfo> &move_list, std::shared_ptr<AttacksArray> attacksArray)
     {
+        int push_twice_dest = move.dest() + (side_to_move == Color::WHITE ? NORTH : SOUTH);   
         bool is_promotion = push_twice_dest < 0 or push_twice_dest >= static_cast<int>(Map::CNT_SQUARES);
+
         if(is_promotion){
-            move_list.emplace_back(from_sq, dest_sq, PieceType::QUEEN);
-            move_list.emplace_back(from_sq, dest_sq, PieceType::ROOK);
-            move_list.emplace_back(from_sq, dest_sq, PieceType::BISHOP);
-            move_list.emplace_back(from_sq, dest_sq, PieceType::KNIGHT);
+            move.set_promotion(PieceType::QUEEN);
+            move_list.emplace_back(move, attacksArray);
+            move.set_promotion(PieceType::ROOK);
+            move_list.emplace_back(move, attacksArray);
+            move.set_promotion(PieceType::BISHOP);
+            move_list.emplace_back(move, attacksArray);
+            move.set_promotion(PieceType::KNIGHT);
+            move_list.emplace_back(move, attacksArray);
         }
-        return is_promotion;
+        else{
+            move_list.emplace_back(move, attacksArray);
+        }
     }
 
-    void generate_sliding_attacks(const Position &pos, uint16_t from_sq, const int *directions, int num_directions, std::vector<Move> &move_list)
+    void generate_sliding_attacks(const Position &pos, Color side_to_move, uint16_t from_sq, const int *directions, int num_directions, AttacksArray &attacks_list)
     {
-        Color side_to_move = static_cast<Color>(Position::get_side_to_move(pos));
 
         for (int i = 0; i < num_directions; ++i)
         {
@@ -139,25 +223,18 @@ namespace MoveGen
                 if (dist > 2) break;
 
                 uint16_t captured_piece_idx = pos.board[to_sq];
+                size_t offset = attacks_list.size[to_sq]++;
+                attacks_list.sq[to_sq*static_cast<size_t>(Map::MAX_ATTACKS_PER_SQ)+offset] = Move(from_sq, to_sq);
                 if (captured_piece_idx != static_cast<uint16_t>(Map::CNT_SQUARES))
                 {
-                    // Если на поле фигура своего цвета, останавливаемся
-                    if (FEN::get_piece_color(pos.pieces_list[captured_piece_idx].type) == side_to_move)
-                    {
-                        break;
-                    }
-                    // Если фигура противника, добавляем ход (взятие) и останавливаемся
-                    move_list.emplace_back(from_sq, to_sq);
                     break;
                 }
-                move_list.emplace_back(from_sq, to_sq);
             }
         }
     }
 
-    void generate_leaping_attacks(const Position &pos, uint16_t from_sq, const int *directions, int num_directions, std::vector<Move> &move_list)
+    void generate_leaping_attacks(const Position &pos, Color side_to_move, uint16_t from_sq, const int *directions, int num_directions, AttacksArray &attacks_list)
     {
-        Color side_to_move = static_cast<Color>(Position::get_side_to_move(pos));
         for (int i = 0; i < num_directions; ++i)
         {
             int to_sq = from_sq + directions[i];
@@ -168,8 +245,18 @@ namespace MoveGen
             // Если поле пустое или занято фигурой противника
             if (captured_piece_idx == static_cast<uint16_t>(Map::CNT_SQUARES) || FEN::get_piece_color(pos.pieces_list[captured_piece_idx].type) != side_to_move)
             {
-                move_list.emplace_back(from_sq, to_sq);
+                size_t offset = attacks_list.size[to_sq]++;
+                attacks_list.sq[to_sq*static_cast<size_t>(Map::MAX_ATTACKS_PER_SQ)+offset] = Move(from_sq, to_sq);
             }
         }
+    }
+
+    bool is_legal(const Move move, Position &pos, const AttacksArray &attacks_list, AttacksArray &next_attacks) {
+        //Color next_side_to_move = static_cast<Color>(Position::get_side_to_move(pos) ^ 1);
+        pos.do_move(move);
+        Color side_to_move = static_cast<Color>(Position::get_side_to_move(pos));
+        generate_attacks(pos, side_to_move,  next_attacks);
+        pos.undo_move();
+        return true;
     }
 }

@@ -136,6 +136,7 @@ enum class MoveType : std::uint16_t
     EN_PASSANT = 2 << 14,
     CASTLING = 3 << 14,
     MASK = 3 << 14,
+    PROMOTION_MASK = 3 << 12,
 };
 
 struct Move
@@ -160,17 +161,17 @@ struct Move
     }
 
     std::uint16_t data;
-    constexpr inline uint16_t dest()
+    constexpr inline uint16_t dest() const
     {
         return data & 0x3F;
     }
-    constexpr inline uint16_t source()
+    constexpr inline uint16_t source() const
     {
         return (data >> 6) & 0x3F;
     }
     constexpr inline PieceType promotion_piece()
     {
-        return PieceType(static_cast<uint16_t>(PieceType::KNIGHT) + ((data >> 12) & 0x3));
+        return PieceType(static_cast<uint16_t>(PieceType::KNIGHT) + ((data & static_cast<uint16_t>(MoveType::PROMOTION_MASK)) >> 12));
     }
     constexpr inline MoveType type()
     {
@@ -179,6 +180,12 @@ struct Move
     constexpr bool operator==(const Move &other) const
     {
         return data == other.data;
+    }
+
+    void set_promotion(PieceType pt){
+        uint16_t mask = static_cast<uint16_t>(MoveType::PROMOTION_MASK) | static_cast<uint16_t>(MoveType::MASK);
+        uint16_t code = static_cast<std::uint16_t>(MoveType::PROMOTION) | ((static_cast<uint16_t>(pt) - static_cast<uint16_t>(PieceType::KNIGHT)) << 12);
+        data ^= (data & mask) ^ code;
     }
 };
 

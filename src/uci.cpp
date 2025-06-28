@@ -168,25 +168,51 @@ void undo_last_move()
     g_position.undo_move();
 }
 
-uint64_t perft(Position& pos, int depth) {
+uint64_t perft(Position& pos, int depth, std::shared_ptr<MoveGen::AttacksArray> attacks_list) {
+    Position start_pos;
+    start_pos.set_from_fen(FEN::Default);
+    static bool flag1 = 0, flag2 = 0;
+    static int cnt = 0;
     if (depth == 0) {
         return 1;
     }
-    
-    std::vector<Move> move_list;
-    MoveGen::generate_moves(pos, move_list);
-    std::print("{{");
-    for(Move move : move_list) {
-        print("{}->{} ", FEN::index_to_square(move.source()), FEN::index_to_square(move.dest()));
-    }
-    std::println("}}");
+
+    //std::print("{}", *attacks_list);
+
+    std::vector<MoveGen::MoveInfo> move_list;
+    MoveGen::generate_moves(pos, *attacks_list, move_list);
+
+    //if(flag1 and flag2){
+        // if(depth == 1){
+        //     //std::print("{}", pos);
+        //     std::print("{{");
+        // for(MoveGen::MoveInfo move_info : move_list) {
+        //     Move move = move_info.move;
+        //     print("{}->{} ", FEN::index_to_square(move.source()), FEN::index_to_square(move.dest()));
+        // }
+        // std::println("}}");
+        // flag1 = flag2 = 0;
+        // ++cnt;
+        // if(cnt ==503){
+        //     exit(0);
+        // }
+        // }
+    //}
 
     uint64_t nodes = 0;
-    for (const auto& move : move_list) {
-        pos.do_move(move);
-        nodes += perft(pos, depth - 1);
+    for (const auto& move_info : move_list) {
+        Move m = move_info.move;
+        if(flag2 and FEN::index_to_square(m.source())=="b7" and FEN::index_to_square(m.dest())=="b5"){
+            flag1 = 1;           
+        }
+        if(depth == 3 and FEN::index_to_square(m.source())=="a2" and FEN::index_to_square(m.dest())=="a4"){
+            flag2 = 1;         
+        }
+        pos.do_move(move_info.move);
+        nodes += perft(pos, depth - 1, move_info.attacks_list);
         pos.undo_move();
     }
+
     return nodes;
 }
 
@@ -194,7 +220,13 @@ void handle_perft() {
         // ... парсинг глубины
         int depth;
         std::cin>>depth;
-        uint64_t nodes = perft(g_position, depth);
+
+        auto attacks_list = std::make_shared<MoveGen::AttacksArray>();
+        Color cur_color = static_cast<Color>(Position::get_side_to_move(g_position));
+        MoveGen::generate_attacks(g_position, cur_color, *attacks_list);
+        
+        std::println("{}", *attacks_list);
+        uint64_t nodes = perft(g_position, depth, attacks_list);
         std::println("Nodes searched: {}", nodes);
     }
 #endif

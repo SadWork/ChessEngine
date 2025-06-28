@@ -46,4 +46,6 @@ debug_perft 1
 position fen rnbkqbnr/3p1p1p/p3p3/4p1p1/2pP1P2/8/PpP1P1PP/R1BKQB1R b KQkq d3 0 2
 debug_print_position
 debug_perft 1
+position startpos
+debug_perft 4
 quit
