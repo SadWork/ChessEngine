@@ -18,9 +18,10 @@ namespace MoveGen
     using PawnQuiteMoves = std::array<Move, static_cast<size_t>(Map::CNT_SQUARES)>;
     
     void generate_moves(Position &pos, AttacksArray &attacks_list, std::vector<MoveInfo> &move_list);
+    void generate_pawn_moves(const Position &pos, Color side_to_move, uint16_t from_sq, PawnQuiteMoves &move_list);
+    void generate_castling_moves(Position &pos, Color side_to_move, const AttacksArray &attacks_list, std::vector<MoveInfo> &move_list);
 
     void generate_attacks(const Position &pos, Color side_to_move, AttacksArray &attacks_list);
-    void generate_pawn_moves(const Position &pos, Color side_to_move, uint16_t from_sq, PawnQuiteMoves &move_list);
     void generate_pawn_attacks(const Position &pos, Color side_to_move, uint16_t from_sq, AttacksArray &attacks_list);
     void generate_pawn_promotions(Move move, Color side_to_move, std::vector<MoveInfo> &move_list, std::shared_ptr<AttacksArray> attacksArray);
     void generate_sliding_attacks(const Position &pos, Color side_to_move, uint16_t from_sq, const int *directions, int num_directions, AttacksArray &attacks_list);
@@ -85,3 +86,5 @@ struct std::formatter<MoveGen::AttacksArray>
         return out;
     }
 };
+
+inline int DEBUG_CNT;

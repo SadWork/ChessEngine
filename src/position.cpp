@@ -215,6 +215,7 @@ struct Position
 {
 
     std::array<uint16_t, static_cast<size_t>(Map::CNT_SQUARES)> board;
+    std::array<uint16_t, 2> king_sq;
     std::array<Piece, static_cast<size_t>(Map::CNT_SQUARES) + 1> pieces_list; // +1 for the sake of simplisity out of range checking
     uint16_t end_pieces_list;
 
@@ -249,7 +250,7 @@ struct Position
 
     Position(std::array<uint16_t, static_cast<uint16_t>(Map::CNT_SQUARES)> &board,
              uint16_t features = 0, uint16_t rule50cnt = 0, uint16_t enpassant_target_square = static_cast<uint16_t>(Map::CNT_SQUARES))
-        : features{features}, rule50cnt{rule50cnt}, enpassant_target_square{enpassant_target_square}, end_pieces_list{0}, moves(), state_history()
+        : features{features}, rule50cnt{rule50cnt}, enpassant_target_square{enpassant_target_square}, end_pieces_list{0}, moves(), state_history(), king_sq{static_cast<uint16_t>(Map::CNT_SQUARES), static_cast<uint16_t>(Map::CNT_SQUARES)}
     {
         this->board.fill(static_cast<uint16_t>(Map::CNT_SQUARES));
         pieces_list.fill(Piece::none());
@@ -261,12 +262,15 @@ struct Position
                 pieces_list[end_pieces_list] = {board[i],
                                                 static_cast<uint16_t>(i)};
                 this->board[i] = end_pieces_list++;
+                if(FEN::get_piece_type(board[i]) == PieceType::KING){
+                    king_sq[static_cast<size_t>(FEN::get_piece_color(board[i]))] = static_cast<uint16_t>(i);
+                }
             }
         }
     }
 
     Position(uint16_t features = 0, uint16_t rule50cnt = 0)
-        : features(features), rule50cnt(rule50cnt), enpassant_target_square(static_cast<uint16_t>(Map::CNT_SQUARES)), end_pieces_list(0), moves(), state_history()
+        : features(features), rule50cnt(rule50cnt), enpassant_target_square(static_cast<uint16_t>(Map::CNT_SQUARES)), end_pieces_list(0), moves(), state_history(), king_sq{static_cast<uint16_t>(Map::CNT_SQUARES), static_cast<uint16_t>(Map::CNT_SQUARES)}
     {
         pieces_list.fill(Piece::none());
         board.fill(static_cast<uint16_t>(Map::CNT_SQUARES));
@@ -342,7 +346,13 @@ struct Position
                 {
                     throw std::runtime_error("Invalid FEN string: unrecognized character in piece placement.");
                 }
+
                 uint16_t position = rank * static_cast<uint16_t>(Map::WIDTH) + file;
+                
+                if(FEN::get_piece_type(piece) == PieceType::KING){
+                    king_sq[static_cast<size_t>(FEN::get_piece_color(piece))] = position;
+                }
+
                 pieces_list[end_pieces_list] = {piece, position};
                 board[position] = end_pieces_list++;
                 file++;
@@ -477,6 +487,11 @@ struct Position
         bool is_pawn_move{moved_piece_type == PieceType::PAWN};
         bool is_pawn_long_move{is_pawn_move and ((source_sq > dest_sq ? source_sq - dest_sq : dest_sq - source_sq) == 2 * static_cast<uint16_t>(Map::WIDTH))};
 
+        if (moved_piece_type == PieceType::KING)
+        {
+           king_sq[side_to_move_bit] = dest_sq;
+        }
+
         if (is_enpassant)
         {
             captured_piece_sq = static_cast<int>(dest_sq) +
@@ -516,7 +531,7 @@ struct Position
             pieces_list[captured_piece_list_idx] = pieces_list[end_pieces_list];    // move last piece info into new idx in the list
             pieces_list[end_pieces_list] = Piece::none();                           // remove caputred piece from the list
 
-            moved_piece_list_idx = moved_piece_list_idx > end_pieces_list ? // if yes than it was swaped with captured_piece
+            moved_piece_list_idx = moved_piece_list_idx >= end_pieces_list ? // if yes than it was swaped with captured_piece
                                        captured_piece_list_idx              // overwise it wasn't
                                                                           : moved_piece_list_idx;
         }
@@ -588,6 +603,11 @@ struct Position
             board[rook_current_sq] = static_cast<uint16_t>(Map::CNT_SQUARES); // Убираем с промежуточного поля
         }
 
+        PieceType moved_piece_type = FEN::get_piece_type(pieces_list[moved_piece_list_idx].type); // Не считая promotion, мы не трогали тип фигуры
+        if(moved_piece_type == PieceType::KING){
+            king_sq[side_to_move_bit] = source_sq;
+        }
+
         if (captured_piece_code != static_cast<uint16_t>(PieceType::EMPTY))
         {
             // Увеличиваем счетчик фигур
@@ -605,57 +625,105 @@ struct Position
     }
 };
 
+inline std::string piece_type_to_string(PieceType pt) {
+    switch (pt) {
+        case PieceType::KING:   return "King";
+        case PieceType::QUEEN:  return "Queen";
+        case PieceType::ROOK:   return "Rook";
+        case PieceType::BISHOP: return "Bishop";
+        case PieceType::KNIGHT: return "Knight";
+        case PieceType::PAWN:   return "Pawn";
+        default:                return "Unknown";
+    }
+}
+
 template <>
-struct std::formatter<Position>
-{
-    // parse() вызывается для разбора строки форматирования (e.g., "{:b}").
-    // Мы не будем поддерживать сложные форматы, поэтому он может быть простым.
-    constexpr auto parse(std::format_parse_context &ctx)
-    {
+struct std::formatter<Piece> {
+    // parse() остается пустым, так как мы не используем опции типа {:x} для Piece
+    constexpr auto parse(std::format_parse_context& ctx) {
         auto it = ctx.begin(), end = ctx.end();
-        // Проверяем, есть ли опции форматирования (мы их игнорируем)
-        if (it != end && *it != '}')
-        {
-            // Можно добавить обработку своих опций, если нужно
-            // Например, "{:f}" для вывода только FEN
-            // А пока просто продвигаем итератор до конца
-            while (it != end && *it != '}')
-            {
-                ++it;
-            }
+        if (it != end && *it != '}') {
+            // В нашем случае здесь ничего нет, но это стандартная практика
+            while (it != end && *it != '}') ++it;
         }
-        return it; // Возвращаем итератор на '}' или end()
+        return it;
     }
 
-    // format() выполняет само форматирование
-    auto format(const Position &pos, std::format_context &ctx) const
-    {
-        auto out = ctx.out(); // Получаем итератор вывода
-
-        // 1. Вывод доски
-        out = std::format_to(out, "\n  +---+---+---+---+---+---+---+---+\n");
-        for (int rank = static_cast<int>(Map::HEIGHT) - 1; rank >= 0; --rank)
-        {
-            out = std::format_to(out, "{} |", rank + 1); // Номер горизонтали
-            for (int file = 0; file < static_cast<int>(Map::WIDTH); ++file)
-            {
-                int index = rank * static_cast<int>(Map::WIDTH) + file;
-                char piece_char = FEN::piece_to_fen_char(pos.pieces_list[pos.board[index]].type);
-                if (piece_char == '.')
-                    piece_char = ' '; // Заменяем точку на пробел для красоты
-                out = std::format_to(out, " {} |", piece_char);
-            }
-            out = std::format_to(out, "\n  +---+---+---+---+---+---+---+---+\n");
+    // format() выполняет основную работу
+    auto format(const Piece& p, std::format_context& ctx) const {
+        auto out = ctx.out();
+        
+        if (p.type == static_cast<uint16_t>(PieceType::EMPTY)) {
+            return std::format_to(out, "[Empty Piece]");
         }
-        out = std::format_to(out, "    a   b   c   d   e   f   g   h\n\n");
-        // 2. Вывод характеристик
-        out = std::format_to(out, "Cnt Pieces:   {}\n", pos.end_pieces_list);
-        out = std::format_to(out, "Side to move: {}\n", (Position::get_side_to_move(pos) == static_cast<bool>(Color::WHITE) ? "White" : "Black"));
-        out = std::format_to(out, "Castling:     {}\n", Position::get_castling_rights_str(pos));
-        out = std::format_to(out, "En passant:   {}\n", Position::get_enpassant_str(pos));
-        out = std::format_to(out, "Rule 50:      {}\n", pos.rule50cnt);
-        out = std::format_to(out, "Features raw: {:#04x}\n", pos.features);
 
+        Color color = FEN::get_piece_color(p.type);
+        PieceType type = FEN::get_piece_type(p.type);
+
+        return std::format_to(out, "{} {} at {}",
+                              (color == Color::WHITE ? "White" : "Black"),
+                              piece_type_to_string(type),
+                              FEN::index_to_square(p.position));
+    }
+};
+
+template <>
+struct std::formatter<Position> {
+    // 'f' (full) - для вывода доски (по умолчанию)
+    // 'l' (list) - для вывода списка фигур
+    char presentation = 'f';
+
+    constexpr auto parse(std::format_parse_context& ctx) {
+        auto it = ctx.begin(), end = ctx.end();
+        if (it != end && (*it == 'f' || *it == 'l')) {
+            presentation = *it++;
+        }
+        
+        // Убедимся, что после нашего флага идет '}'
+        if (it != end && *it != '}') {
+            throw std::format_error("invalid format specifier for Position");
+        }
+        
+        return it;
+    }
+
+    // format() теперь использует 'presentation' для выбора формата вывода
+    auto format(const Position& pos, std::format_context& ctx) const {
+        auto out = ctx.out();
+        
+        if (presentation == 'l') {
+            // Вывод списка фигур
+            out = std::format_to(out, "Piece List (count: {}):\n", pos.end_pieces_list);
+            for (uint16_t i = 0; i < pos.end_pieces_list; ++i) {
+                // Используем форматер для Piece, который мы создали ранее
+                out = std::format_to(out, "  [{:2}] {}\n", i, pos.pieces_list[i]);
+            }
+        } else { // presentation == 'f' (или по умолчанию)
+            // Ваш существующий код для вывода доски
+            out = std::format_to(out, "\n  +---+---+---+---+---+---+---+---+\n");
+            for (int rank = static_cast<int>(Map::HEIGHT) - 1; rank >= 0; --rank) {
+                out = std::format_to(out, "{} |", rank + 1);
+                for (int file = 0; file < static_cast<int>(Map::WIDTH); ++file) {
+                    int index = rank * static_cast<int>(Map::WIDTH) + file;
+                    // Проверка, что на доске есть фигура
+                    if (pos.board[index] < static_cast<uint16_t>(Map::CNT_SQUARES)) {
+                        char piece_char = FEN::piece_to_fen_char(pos.pieces_list[pos.board[index]].type);
+                        out = std::format_to(out, " {} |", piece_char);
+                    } else {
+                        out = std::format_to(out, "   |"); // Пустое поле
+                    }
+                }
+                out = std::format_to(out, "\n  +---+---+---+---+---+---+---+---+\n");
+            }
+            out = std::format_to(out, "    a   b   c   d   e   f   g   h\n\n");
+            out = std::format_to(out, "Cnt Pieces:   {}\n", pos.end_pieces_list);
+            out = std::format_to(out, "Side to move: {}\n", (Position::get_side_to_move(pos) == static_cast<bool>(Color::WHITE) ? "White" : "Black"));
+            out = std::format_to(out, "Castling:     {}\n", Position::get_castling_rights_str(pos));
+            out = std::format_to(out, "En passant:   {}\n", Position::get_enpassant_str(pos));
+            out = std::format_to(out, "Rule 50:      {}\n", pos.rule50cnt);
+            out = std::format_to(out, "Features raw: {:#04x}\n", pos.features);
+            out = std::format_to(out, "King squares : White {}, Black {}\n", FEN::index_to_square(pos.king_sq[static_cast<size_t>(Color::WHITE)]), FEN::index_to_square(pos.king_sq[static_cast<size_t>(Color::BLACK)]));
+        }
         return out;
     }
 };

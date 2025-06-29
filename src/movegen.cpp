@@ -6,7 +6,21 @@ namespace MoveGen
     constexpr int KNIGHT_DIRECTIONS[] = {NORTH + NORTH_EAST, NORTH + NORTH_WEST, EAST + NORTH_EAST, EAST + SOUTH_EAST, SOUTH + SOUTH_EAST, SOUTH + SOUTH_WEST, WEST + SOUTH_WEST, WEST + NORTH_WEST}; 
     // 17, 15, 10, -6, -15, -17, -10, 6
 
+    constexpr size_t CASTLE_N = 2, COLOR_N = 2;
 
+    constexpr uint16_t CASTLING_RIGHTS_MASKS[COLOR_N][CASTLE_N] = {
+        {static_cast<uint16_t>(Map::BIT_NO_CASTLE_WK), static_cast<uint16_t>(Map::BIT_NO_CASTLE_WQ)}, 
+        static_cast<uint16_t>(Map::BIT_NO_CASTLE_BK), static_cast<uint16_t>(Map::BIT_NO_CASTLE_BQ)
+    };
+    constexpr int CASTLING_DIRECTION[COLOR_N][CASTLE_N] = {
+        {EAST, WEST}, 
+        {EAST, WEST}
+    };
+    constexpr uint16_t ROOK_CASTLING_SQ[COLOR_N][CASTLE_N] = {
+        {FEN::square_to_index("h1"), FEN::square_to_index("a1")}, 
+        {FEN::square_to_index("h8"), FEN::square_to_index("a8")}
+    };
+    
     // Направления для короля
     constexpr int KING_DIRECTIONS[] = {NORTH, EAST, SOUTH, WEST, NORTH_EAST, NORTH_WEST, SOUTH_EAST, SOUTH_WEST};
     // Направления для ладьи
@@ -130,6 +144,8 @@ namespace MoveGen
                 break;
             case PieceType::KING:
                 // TODO: Добавить генерацию рокировок
+                generate_castling_moves(pos, side_to_move, attacks_list, move_list);
+                
                 break;
             case PieceType::EMPTY:
             default:
@@ -152,7 +168,7 @@ namespace MoveGen
         // No capture
         if(pos.board[push_once_dest] == static_cast<uint16_t>(Map::CNT_SQUARES)){
             move_list[size++] = Move(from_sq, push_once_dest);
-            if (is_start_rank){
+            if (is_start_rank and pos.board[push_twice_dest] == static_cast<uint16_t>(Map::CNT_SQUARES)){
                 move_list[size++] = Move(from_sq, push_twice_dest);
             }
         }    
@@ -174,7 +190,11 @@ namespace MoveGen
             uint16_t captured_idx = pos.board[dest_sq];
             size_t offset = attacks_list.size[dest_sq]++;
             
-            attacks_list.sq[dest_sq*static_cast<size_t>(Map::MAX_ATTACKS_PER_SQ) + offset] = Move(from_sq, dest_sq);
+            if(dest_sq == pos.enpassant_target_square){
+                attacks_list.sq[dest_sq*static_cast<size_t>(Map::MAX_ATTACKS_PER_SQ) + offset] = Move(from_sq, dest_sq, MoveType::EN_PASSANT);
+            }else{
+                attacks_list.sq[dest_sq*static_cast<size_t>(Map::MAX_ATTACKS_PER_SQ) + offset] = Move(from_sq, dest_sq);
+            }
             
             // if (captured_idx != static_cast<uint16_t>(Map::CNT_SQUARES)){
             //     size_t offset = attacks_list.size[dest_sq]++;
@@ -251,12 +271,62 @@ namespace MoveGen
         }
     }
 
+
+    void generate_castling_moves(Position &pos, Color side_to_move, const AttacksArray &attacks_list, std::vector<MoveInfo> &move_list) {
+        size_t side = static_cast<size_t>(side_to_move);
+
+        for(size_t i = 0; i < CASTLE_N; ++i) {
+            if(!(pos.features & CASTLING_RIGHTS_MASKS[side][i])) {
+                int  dir = CASTLING_DIRECTION[side][i];
+                uint16_t king_sq = pos.king_sq[side];
+                
+                
+                if(attacks_list.size[king_sq] or attacks_list.size[king_sq + dir]) {
+                    continue;
+                }
+                
+                bool is_possible = true;
+                uint16_t target_sq = ROOK_CASTLING_SQ[side][i];
+                for(uint16_t i = king_sq+dir; i != target_sq; i += dir) {
+                    if(pos.board[i] != static_cast<uint16_t>(Map::CNT_SQUARES)) {
+                        is_possible = false;
+                        break;
+                    }
+                }
+
+                if(is_possible){
+                    Move m = Move(king_sq, king_sq + 2*dir, MoveType::CASTLING);
+                    auto next_attacks = std::make_shared<AttacksArray>();
+                    if(is_legal(m, pos, attacks_list, *next_attacks)) {
+                        move_list.emplace_back(m, next_attacks);
+                    }
+                }
+            }
+        }
+    }
+
     bool is_legal(const Move move, Position &pos, const AttacksArray &attacks_list, AttacksArray &next_attacks) {
-        //Color next_side_to_move = static_cast<Color>(Position::get_side_to_move(pos) ^ 1);
+        uint16_t side_bit_before_move = static_cast<uint16_t>(Position::get_side_to_move(pos));
+        bool legal = true;
+        // if(DEBUG_CNT == 146){
+        //     std::println("{}\n{} -> {}\n{}", __PRETTY_FUNCTION__, FEN::index_to_square(move.source()), FEN::index_to_square(move.dest()) ,pos);
+        //     std::println("{:l}", pos);
+        // }
         pos.do_move(move);
+        
+        // if(DEBUG_CNT == 146){
+        //     std::println("{}\n{} -> {}\n{}", __PRETTY_FUNCTION__, FEN::index_to_square(move.source()), FEN::index_to_square(move.dest()) ,pos);
+        //     std::println("{:l}", pos);
+        //     exit(0);
+        // }
+        
         Color side_to_move = static_cast<Color>(Position::get_side_to_move(pos));
         generate_attacks(pos, side_to_move,  next_attacks);
+
+        if(next_attacks.size[pos.king_sq[side_bit_before_move]]){
+            legal = false;
+        }
         pos.undo_move();
-        return true;
+        return legal;
     }
 }

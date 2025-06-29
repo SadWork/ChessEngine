@@ -169,11 +169,12 @@ void undo_last_move()
 }
 
 uint64_t perft(Position& pos, int depth, std::shared_ptr<MoveGen::AttacksArray> attacks_list) {
+    // static std::string path = "";
     Position start_pos;
     start_pos.set_from_fen(FEN::Default);
-    static bool flag1 = 0, flag2 = 0;
-    static int cnt = 0;
+    static bool flag1 = 0, flag2 = 0, flag3 = 0;
     if (depth == 0) {
+        // std::println("{{{}}}", path);
         return 1;
     }
 
@@ -182,35 +183,49 @@ uint64_t perft(Position& pos, int depth, std::shared_ptr<MoveGen::AttacksArray> 
     std::vector<MoveGen::MoveInfo> move_list;
     MoveGen::generate_moves(pos, *attacks_list, move_list);
 
-    //if(flag1 and flag2){
-        // if(depth == 1){
-        //     //std::print("{}", pos);
+    // if(flag1){
+        // if(depth==1){
+        //     std::println("{}", DEBUG_CNT);
+        //     std::print("{}", pos);
         //     std::print("{{");
         // for(MoveGen::MoveInfo move_info : move_list) {
         //     Move move = move_info.move;
         //     print("{}->{} ", FEN::index_to_square(move.source()), FEN::index_to_square(move.dest()));
         // }
         // std::println("}}");
-        // flag1 = flag2 = 0;
-        // ++cnt;
-        // if(cnt ==503){
+        // flag1 = flag2 = flag3= 0;
+        // ++DEBUG_CNT;
+        // if(DEBUG_CNT == 197000){
         //     exit(0);
         // }
         // }
-    //}
+    // }
 
     uint64_t nodes = 0;
     for (const auto& move_info : move_list) {
         Move m = move_info.move;
-        if(flag2 and FEN::index_to_square(m.source())=="b7" and FEN::index_to_square(m.dest())=="b5"){
-            flag1 = 1;           
+        if(depth == 4 and FEN::index_to_square(m.source())=="a2" and FEN::index_to_square(m.dest())=="a4"){
+            flag1 = 1;         
         }
-        if(depth == 3 and FEN::index_to_square(m.source())=="a2" and FEN::index_to_square(m.dest())=="a4"){
-            flag2 = 1;         
+        if(depth == 3 and flag1 and FEN::index_to_square(m.source())=="b7" and FEN::index_to_square(m.dest())=="b6"){
+            flag2 = 1;           
         }
+        if(depth == 2 and flag2 and FEN::index_to_square(m.source())=="a4" and FEN::index_to_square(m.dest())=="a5"){
+            flag3 = 1;
+        }
+        // path += std::string(FEN::index_to_square(m.source()))
+        //                    + "->"
+        //                    + std::string(FEN::index_to_square(m.dest()));
         pos.do_move(move_info.move);
+        // if(DEBUG_CNT==146){
+        //     std::print("(After move) Depth = {}\n{}", depth, pos);
+        // }
         nodes += perft(pos, depth - 1, move_info.attacks_list);
+        // path.erase(path.size() - 6, 6);
         pos.undo_move();
+        // if(DEBUG_CNT==146){
+        //     std::print("(Undo move) Depth = {}\n{}", depth, pos);
+        // }
     }
 
     return nodes;
