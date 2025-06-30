@@ -170,6 +170,7 @@ void undo_last_move()
 
 uint64_t perft(Position& pos, int depth, std::shared_ptr<MoveGen::AttacksArray> attacks_list) {
     // static std::string path = "";
+    static std::vector<MoveGen::MoveInfo> move_list;
     
     if (depth == 0) {
         // std::println("{{{}}}", path);
@@ -177,21 +178,22 @@ uint64_t perft(Position& pos, int depth, std::shared_ptr<MoveGen::AttacksArray> 
     }
     
     //std::print("{}", *attacks_list);
-    std::vector<MoveGen::MoveInfo> move_list;
+    size_t i_from = move_list.size(); 
     MoveGen::generate_moves(pos, *attacks_list, move_list);
+    size_t i_to = move_list.size();
 
     uint64_t nodes = 0;
-    for (const auto& move_info : move_list) {
-        Move m = move_info.move;
+    for(size_t i = i_from; i < i_to; ++i) {
+        Move m = move_list[i].move;
         // path += std::string(FEN::index_to_square(m.source()))
         //                    + "->"
         //                    + std::string(FEN::index_to_square(m.dest()));
-        pos.do_move(move_info.move);
-        nodes += perft(pos, depth - 1, move_info.attacks_list);
+        pos.do_move(m);
+        nodes += perft(pos, depth - 1, move_list[i].attacks_list);
         // path.erase(path.size() - 6, 6);
         pos.undo_move();
-
     }
+    move_list.resize(i_from);
 
     return nodes;
 }

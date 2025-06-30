@@ -73,8 +73,8 @@ namespace MoveGen
 
     void generate_moves(Position &pos, AttacksArray &attacks_list, std::vector<MoveInfo> &move_list)
     {
-        move_list.clear();
-        move_list.reserve(218);
+        // move_list.clear();
+        // move_list.reserve(218);
 
         Color side_to_move = static_cast<Color>(Position::get_side_to_move(pos));
         uint16_t color_bit = static_cast<uint16_t>(side_to_move) << static_cast<uint16_t>(Color::LOG_BIT_COLOR);
