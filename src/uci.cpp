@@ -183,24 +183,6 @@ uint64_t perft(Position& pos, int depth, std::shared_ptr<MoveGen::AttacksArray> 
     std::vector<MoveGen::MoveInfo> move_list;
     MoveGen::generate_moves(pos, *attacks_list, move_list);
 
-    // if(flag1){
-        // if(depth==1){
-        //     std::println("{}", DEBUG_CNT);
-        //     std::print("{}", pos);
-        //     std::print("{{");
-        // for(MoveGen::MoveInfo move_info : move_list) {
-        //     Move move = move_info.move;
-        //     print("{}->{} ", FEN::index_to_square(move.source()), FEN::index_to_square(move.dest()));
-        // }
-        // std::println("}}");
-        // flag1 = flag2 = flag3= 0;
-        // ++DEBUG_CNT;
-        // if(DEBUG_CNT == 197000){
-        //     exit(0);
-        // }
-        // }
-    // }
-
     uint64_t nodes = 0;
     for (const auto& move_info : move_list) {
         Move m = move_info.move;
@@ -217,15 +199,10 @@ uint64_t perft(Position& pos, int depth, std::shared_ptr<MoveGen::AttacksArray> 
         //                    + "->"
         //                    + std::string(FEN::index_to_square(m.dest()));
         pos.do_move(move_info.move);
-        // if(DEBUG_CNT==146){
-        //     std::print("(After move) Depth = {}\n{}", depth, pos);
-        // }
         nodes += perft(pos, depth - 1, move_info.attacks_list);
         // path.erase(path.size() - 6, 6);
         pos.undo_move();
-        // if(DEBUG_CNT==146){
-        //     std::print("(Undo move) Depth = {}\n{}", depth, pos);
-        // }
+
     }
 
     return nodes;

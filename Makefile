@@ -5,7 +5,7 @@ LDFLAGS = -fsanitize=address,undefined -pthread
 
 ASAN_LIB   := $(shell $(CXX) -print-file-name=libasan.so)
 
-TARGET = my_engine
+TARGET = my_engine.out
 SRC_DIR = src
 # Найдем все .cpp файлы в текущей директории
 SRCS = $(wildcard $(SRC_DIR)/*.cpp)
