@@ -27,7 +27,7 @@ enum class Map : std::uint16_t
     WIDTH = 8,
     HEIGHT = 8,
     CNT_SQUARES = WIDTH * HEIGHT,
-    MAX_ATTACKS_PER_SQ = 36,
+    MAX_ATTACKS_PER_SQ = 16,
     BIT_SIDE_TO_MOVE = 1,
     BIT_NO_CASTLE_WK = 1 << 1,
     BIT_NO_CASTLE_WQ = 1 << 2,

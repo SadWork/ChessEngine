@@ -177,7 +177,7 @@ uint64_t perft(Position& pos, int depth, std::shared_ptr<MoveGen::AttacksArray> 
         return 1;
     }
     
-    //std::print("{}", *attacks_list);
+    // std::print("{}", *attacks_list);
     size_t i_from = move_list.size(); 
     MoveGen::generate_moves(pos, *attacks_list, move_list);
     size_t i_to = move_list.size();
@@ -185,12 +185,16 @@ uint64_t perft(Position& pos, int depth, std::shared_ptr<MoveGen::AttacksArray> 
     uint64_t nodes = 0;
     for(size_t i = i_from; i < i_to; ++i) {
         Move m = move_list[i].move;
+        // size_t prev_path_size = path.size();
         // path += std::string(FEN::index_to_square(m.source()))
         //                    + "->"
         //                    + std::string(FEN::index_to_square(m.dest()));
+        // if(m.type() == MoveType::PROMOTION) {
+        //     path+= FEN::piece_to_fen_char(static_cast<uint16_t>(m.promotion_piece()));
+        // }
         pos.do_move(m);
         nodes += perft(pos, depth - 1, move_list[i].attacks_list);
-        // path.erase(path.size() - 6, 6);
+        // path.resize(prev_path_size);
         pos.undo_move();
     }
     move_list.resize(i_from);

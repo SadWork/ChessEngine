@@ -479,6 +479,8 @@ struct Position
         uint16_t captured_piece_list_idx = board[dest_sq];
         uint16_t captured_piece_code = pieces_list[captured_piece_list_idx].type;
         uint16_t captured_piece_sq = dest_sq;
+
+        PieceType captured_piece_type = FEN::get_piece_type(captured_piece_code);
         // if captured_piece_list_idx == Map::CNT_SQUARES it's still in the range of array
 
         const MoveType m_type = m.type();
@@ -498,7 +500,7 @@ struct Position
                                 (side_to_move_bit == static_cast<uint16_t>(Color::WHITE) ? -static_cast<int>(Map::WIDTH) : static_cast<int>(Map::WIDTH));
             captured_piece_list_idx = board[captured_piece_sq];
             captured_piece_code = pieces_list[captured_piece_list_idx].type;
-            board[captured_piece_sq] = static_cast<uint16_t>(Map::CNT_SQUARES); // remove captured piece from the board
+            
             // after that remove as it's normal move
             is_captured = true;
         }
@@ -530,6 +532,7 @@ struct Position
             board[pieces_list[end_pieces_list].position] = captured_piece_list_idx; // set new idx on the board for last piece in the list
             pieces_list[captured_piece_list_idx] = pieces_list[end_pieces_list];    // move last piece info into new idx in the list
             pieces_list[end_pieces_list] = Piece::none();                           // remove caputred piece from the list
+            board[captured_piece_sq] = static_cast<uint16_t>(Map::CNT_SQUARES); // remove captured piece from the board
 
             moved_piece_list_idx = moved_piece_list_idx >= end_pieces_list ? // if yes than it was swaped with captured_piece
                                        captured_piece_list_idx              // overwise it wasn't
@@ -552,10 +555,19 @@ struct Position
                                                                 (side_to_move_bit == static_cast<uint16_t>(Color::WHITE)) << static_cast<uint16_t>(Map::LOG_BIT_NO_CASTLE_WK) |
                                                                 (side_to_move_bit == static_cast<uint16_t>(Color::WHITE)) << static_cast<uint16_t>(Map::LOG_BIT_NO_CASTLE_WQ)
                                                           : 0;
-        features |= (moved_piece_type == PieceType::ROOK and (source_sq == FEN::square_to_index("h1") or dest_sq == FEN::square_to_index("h1"))) << static_cast<uint16_t>(Map::LOG_BIT_NO_CASTLE_WK);
-        features |= (moved_piece_type == PieceType::ROOK and (source_sq == FEN::square_to_index("a1") or dest_sq == FEN::square_to_index("a1"))) << static_cast<uint16_t>(Map::LOG_BIT_NO_CASTLE_WQ);
-        features |= (moved_piece_type == PieceType::ROOK and (source_sq == FEN::square_to_index("h8") or dest_sq == FEN::square_to_index("h8"))) << static_cast<uint16_t>(Map::LOG_BIT_NO_CASTLE_BK);
-        features |= (moved_piece_type == PieceType::ROOK and (source_sq == FEN::square_to_index("a8") or dest_sq == FEN::square_to_index("a8"))) << static_cast<uint16_t>(Map::LOG_BIT_NO_CASTLE_BQ);
+        if(moved_piece_type == PieceType::ROOK){
+            features |= (source_sq == FEN::square_to_index("h1")) << static_cast<uint16_t>(Map::LOG_BIT_NO_CASTLE_WK);
+            features |= (source_sq == FEN::square_to_index("a1")) << static_cast<uint16_t>(Map::LOG_BIT_NO_CASTLE_WQ);
+            features |= (source_sq == FEN::square_to_index("h8")) << static_cast<uint16_t>(Map::LOG_BIT_NO_CASTLE_BK);
+            features |= (source_sq == FEN::square_to_index("a8")) << static_cast<uint16_t>(Map::LOG_BIT_NO_CASTLE_BQ);
+        }
+        if(captured_piece_type == PieceType::ROOK){
+            features |= (dest_sq == FEN::square_to_index("h1")) << static_cast<uint16_t>(Map::LOG_BIT_NO_CASTLE_WK);
+            features |= (dest_sq == FEN::square_to_index("a1")) << static_cast<uint16_t>(Map::LOG_BIT_NO_CASTLE_WQ);
+            features |= (dest_sq == FEN::square_to_index("h8")) << static_cast<uint16_t>(Map::LOG_BIT_NO_CASTLE_BK);
+            features |= (dest_sq == FEN::square_to_index("a8")) << static_cast<uint16_t>(Map::LOG_BIT_NO_CASTLE_BQ);
+        }
+
         features ^= static_cast<uint16_t>(Map::BIT_SIDE_TO_MOVE);
         rule50cnt = (is_captured or is_pawn_move) ? 0 : rule50cnt + 1;
     }

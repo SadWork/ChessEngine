@@ -290,9 +290,16 @@ namespace MoveGen
     bool is_legal(const Move move, Position &pos, const AttacksArray &attacks_list, AttacksArray &next_attacks) {
         uint16_t side_bit_before_move = static_cast<uint16_t>(Position::get_side_to_move(pos));
         bool legal = true;
-
+        // if(std::string(FEN::index_to_square(move.source()))+ std::string(FEN::index_to_square(move.dest())) == "f4g3"){
+        //     std::println("{}", pos);
+        //     std::println("{:l}", pos);
+        // }
         pos.do_move(move);
-        
+        // if(std::string(FEN::index_to_square(move.source()))+ std::string(FEN::index_to_square(move.dest())) == "f4g3"){
+        //     std::println("{}", pos);
+        //     std::println("{:l}", pos);
+        //     std::println("{}", pos.board[FEN::square_to_index("g4")]);
+        // }
         Color side_to_move = static_cast<Color>(Position::get_side_to_move(pos));
         generate_attacks(pos, side_to_move,  next_attacks);
 
