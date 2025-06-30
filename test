@@ -48,6 +48,8 @@ debug_print_position
 debug_perft 1
 position fen r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1
 debug_perft 1
+position fen 1n2kb1r/PP4PP/8/8/8/8/pp4pp/1N2KB1R w - - 0 1
+debug_perft 1
 position startpos
-debug_perft 7
+debug_perft 5
 quit

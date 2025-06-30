@@ -170,31 +170,19 @@ void undo_last_move()
 
 uint64_t perft(Position& pos, int depth, std::shared_ptr<MoveGen::AttacksArray> attacks_list) {
     // static std::string path = "";
-    Position start_pos;
-    start_pos.set_from_fen(FEN::Default);
-    static bool flag1 = 0, flag2 = 0, flag3 = 0;
+    
     if (depth == 0) {
         // std::println("{{{}}}", path);
         return 1;
     }
-
+    
     //std::print("{}", *attacks_list);
-
     std::vector<MoveGen::MoveInfo> move_list;
     MoveGen::generate_moves(pos, *attacks_list, move_list);
 
     uint64_t nodes = 0;
     for (const auto& move_info : move_list) {
         Move m = move_info.move;
-        if(depth == 4 and FEN::index_to_square(m.source())=="a2" and FEN::index_to_square(m.dest())=="a4"){
-            flag1 = 1;         
-        }
-        if(depth == 3 and flag1 and FEN::index_to_square(m.source())=="b7" and FEN::index_to_square(m.dest())=="b6"){
-            flag2 = 1;           
-        }
-        if(depth == 2 and flag2 and FEN::index_to_square(m.source())=="a4" and FEN::index_to_square(m.dest())=="a5"){
-            flag3 = 1;
-        }
         // path += std::string(FEN::index_to_square(m.source()))
         //                    + "->"
         //                    + std::string(FEN::index_to_square(m.dest()));
