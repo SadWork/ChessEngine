@@ -1,5 +1,5 @@
 #pragma once
-#include "position.cpp"
+#include "position.hpp"
 #include <bits/stdc++.h>
 
 namespace MoveGen
@@ -86,5 +86,3 @@ struct std::formatter<MoveGen::AttacksArray>
         return out;
     }
 };
-
-inline int DEBUG_CNT;

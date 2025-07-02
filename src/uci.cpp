@@ -1,7 +1,7 @@
 #pragma once
 #include <bits/stdc++.h>
 #include "types.h"
-#include "position.cpp"
+#include "position.hpp"
 #include "movegen.hpp"
 
 namespace UCI
